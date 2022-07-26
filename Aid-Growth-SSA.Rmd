@@ -1,0 +1,483 @@
+---
+title: "How foreign aid is associated with economic growth?"
+author: "Soutonnoma Sonia Nikiema"
+date: "12/06/2021"
+output:
+  html_document: default
+  pdf_document: default
+  word_document: default
+---
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+library(tidyverse)  # ggplot(), %>%, mutate(), and friends
+library(broom)  # Convert models to data frames
+library(scales)  # Format numbers with functions like comma(), percent(), and dollar()
+library(modelsummary)  # Create side-by-side regression tables
+library(lubridate)
+library(kableExtra)
+library(MASS)
+```
+
+
+
+```{r include=FALSE}
+list<-read.csv("data/list.csv", header= TRUE, check.names = FALSE)
+rawODA<-read.csv("data/ODAP.csv", header= TRUE, check.names = FALSE)
+rawGDP<-read.csv("data/GDP.csv", header= TRUE, check.names = FALSE)
+rawdeflator<-read.csv("data/gdp_deflator.csv", header= TRUE, check.names = FALSE)
+rawCapitalForm<-read.csv("data/capitalP.csv", header= TRUE, check.names = FALSE)
+rawtrade<-read.csv("data/tradeP.csv", header= TRUE, check.names = FALSE)
+rawunemployment<-read.csv("data/unemployment.csv", header= TRUE, check.names = FALSE)
+rawpov<-read.csv("data2/pauvHeadcount.csv", header= TRUE, check.names = FALSE)
+
+```
+
+
+
+
+
+
+```{r include=FALSE}
+rawODA <-rawODA%>%
+    pivot_longer(!c('Country Name', 'Country Code'), names_to="years", values_to = "Aid", values_drop_na = TRUE)
+
+rawGDP <-rawGDP%>%
+    pivot_longer(!c('Country Name', 'Country Code'), names_to="years", values_to = "GDP", values_drop_na = TRUE)
+
+rawdeflator <-rawdeflator%>%
+    pivot_longer(!c('Country Name', 'Country Code'), names_to="years", values_to = "deflator", values_drop_na = TRUE)
+
+rawtrade <-rawtrade%>%
+    pivot_longer(!c('Country Name', 'Country Code'), names_to="years", values_to = "trade", values_drop_na = TRUE)
+
+rawunemployment <-rawunemployment%>%
+    pivot_longer(!c('Country Name', 'Country Code'), names_to="years", values_to = "U", values_drop_na = TRUE)
+
+rawcapital <-rawCapitalForm%>%
+    pivot_longer(!c('Country Name', 'Country Code'), names_to="years", values_to = "capital", values_drop_na = TRUE)
+
+```
+
+
+
+
+
+
+```{r include=FALSE}
+SSAAid <- rawODA%>%
+  rename(Country.Name='Country Name', Country.Code='Country Code')%>%
+  filter(Country.Name %in% c("Angola", "Benin", "Botswana", "Burkina Faso", "Burundi", "Cape Verde", "Cameroon", "Central African Republic", "Chad", "Comoros", "Democratic Republic of the Congo", "Republic of the Congo", "Cote d'Ivoire", "Djibouti", "Equatorial Guinea", "Eritrea", "Ethiopia", "Gabon", "Gambia", "Ghana", "Guinea", "Guinea-Bissau", "Kenya", "Lesotho", "Liberia", "Madagascar", "Malawi", "Mali", "Mauritania", "Mauritius", "Mozambique", "Namibia", "Niger", "Nigeria", "Rwanda", "Sao Tome and Principe", "Senegal", "Seychelles", "Sierra Leone", "Somalia", "South Africa", "South Sudan", "Sudan", "Tanzania", "Togo", "Uganda", "Zambia", "Zimbabwe"))
+
+SSAGDP <- rawGDP%>%
+  rename(Country.Name='Country Name', Country.Code='Country Code')%>%
+  filter(Country.Name %in% c("Angola", "Benin", "Botswana", "Burkina Faso", "Burundi", "Cape Verde", "Cameroon", "Central African Republic", "Chad", "Comoros", "Democratic Republic of the Congo", "Republic of the Congo", "Cote d'Ivoire", "Djibouti", "Equatorial Guinea", "Eritrea", "Ethiopia", "Gabon", "Gambia", "Ghana", "Guinea", "Guinea-Bissau", "Kenya", "Lesotho", "Liberia", "Madagascar", "Malawi", "Mali", "Mauritania", "Mauritius", "Mozambique", "Namibia", "Niger", "Nigeria", "Rwanda", "Sao Tome and Principe", "Senegal", "Seychelles", "Sierra Leone", "Somalia", "South Africa", "South Sudan", "Sudan", "Tanzania", "Togo", "Uganda", "Zambia", "Zimbabwe"))
+
+SSAdeflator <- rawdeflator%>%
+  rename(Country.Name='Country Name', Country.Code='Country Code')%>%
+  filter(Country.Name %in% c("Angola", "Benin", "Botswana", "Burkina Faso", "Burundi", "Cape Verde", "Cameroon", "Central African Republic", "Chad", "Comoros", "Democratic Republic of the Congo", "Republic of the Congo", "Cote d'Ivoire", "Djibouti", "Equatorial Guinea", "Eritrea", "Ethiopia", "Gabon", "Gambia", "Ghana", "Guinea", "Guinea-Bissau", "Kenya", "Lesotho", "Liberia", "Madagascar", "Malawi", "Mali", "Mauritania", "Mauritius", "Mozambique", "Namibia", "Niger", "Nigeria", "Rwanda", "Sao Tome and Principe", "Senegal", "Seychelles", "Sierra Leone", "Somalia", "South Africa", "South Sudan", "Sudan", "Tanzania", "Togo", "Uganda", "Zambia", "Zimbabwe"))
+
+SSAtrade <- rawtrade%>%
+  rename(Country.Name='Country Name', Country.Code='Country Code')%>%
+  filter(Country.Name %in% c("Angola", "Benin", "Botswana", "Burkina Faso", "Burundi", "Cape Verde", "Cameroon", "Central African Republic", "Chad", "Comoros", "Democratic Republic of the Congo", "Republic of the Congo", "Cote d'Ivoire", "Djibouti", "Equatorial Guinea", "Eritrea", "Ethiopia", "Gabon", "Gambia", "Ghana", "Guinea", "Guinea-Bissau", "Kenya", "Lesotho", "Liberia", "Madagascar", "Malawi", "Mali", "Mauritania", "Mauritius", "Mozambique", "Namibia", "Niger", "Nigeria", "Rwanda", "Sao Tome and Principe", "Senegal", "Seychelles", "Sierra Leone", "Somalia", "South Africa", "South Sudan", "Sudan", "Tanzania", "Togo", "Uganda", "Zambia", "Zimbabwe"))
+
+SSAunemployment <- rawunemployment%>%
+  rename(Country.Name='Country Name', Country.Code='Country Code')%>%
+  filter(Country.Name %in% c("Angola", "Benin", "Botswana", "Burkina Faso", "Burundi", "Cape Verde", "Cameroon", "Central African Republic", "Chad", "Comoros", "Democratic Republic of the Congo", "Republic of the Congo", "Cote d'Ivoire", "Djibouti", "Equatorial Guinea", "Eritrea", "Ethiopia", "Gabon", "Gambia", "Ghana", "Guinea", "Guinea-Bissau", "Kenya", "Lesotho", "Liberia", "Madagascar", "Malawi", "Mali", "Mauritania", "Mauritius", "Mozambique", "Namibia", "Niger", "Nigeria", "Rwanda", "Sao Tome and Principe", "Senegal", "Seychelles", "Sierra Leone", "Somalia", "South Africa", "South Sudan", "Sudan", "Tanzania", "Togo", "Uganda", "Zambia", "Zimbabwe"))
+
+
+SSAcapital <- rawcapital%>%
+  rename(Country.Name='Country Name', Country.Code='Country Code')%>%
+  filter(Country.Name %in% c("Angola", "Benin", "Botswana", "Burkina Faso", "Burundi", "Cape Verde", "Cameroon", "Central African Republic", "Chad", "Comoros", "Democratic Republic of the Congo", "Republic of the Congo", "Cote d'Ivoire", "Djibouti", "Equatorial Guinea", "Eritrea", "Ethiopia", "Gabon", "Gambia", "Ghana", "Guinea", "Guinea-Bissau", "Kenya", "Lesotho", "Liberia", "Madagascar", "Malawi", "Mali", "Mauritania", "Mauritius", "Mozambique", "Namibia", "Niger", "Nigeria", "Rwanda", "Sao Tome and Principe", "Senegal", "Seychelles", "Sierra Leone", "Somalia", "South Africa", "South Sudan", "Sudan", "Tanzania", "Togo", "Uganda", "Zambia", "Zimbabwe"))
+
+
+```
+
+
+
+
+```{r include=FALSE}
+SSAData<-inner_join(SSAGDP, SSAdeflator)
+
+SSAData<-inner_join(SSAData, SSAAid)
+
+SSAData<-inner_join(SSAData, SSAtrade)
+
+SSAData<-inner_join(SSAData, SSAunemployment)
+
+SSAData<-inner_join(SSAData, SSAcapital)
+
+```
+
+
+
+## Landlocked countries
+```{r echo=TRUE}
+landlocked<-c("Botswana", "Burkina Faso", "Burundi", "Central African Republic", "Chad", "Ethiopia", "Lesotho", "Malawi", "Mali", "Niger", "Rwanda", "South Sudan", "Uganda", "Zambia", "Zimbabwe")
+
+print(landlocked, quote = FALSE, max.levels = NULL, color=NA)
+```
+
+## Clean data
+
+```{r}
+
+SSAData<-SSAData%>%
+  mutate(geography=ifelse(Country.Name %in%landlocked, "landloked", "coastal"),
+         landlocked=ifelse(Country.Name %in%landlocked, "1", "0"),
+         GDP=GDP/deflator,
+         Aid.L=lag(Aid, n=3L),
+         GDP.L=lag(GDP, n=1L),
+        capital.L=lag(capital, n=2L),
+         U.L=lag(U, n=1L),
+       trade.L=lag(trade, n=1L))
+
+SSAData$years <- as.Date(as.character(SSAData$years), format = "%Y")
+SSAData$years <- year(SSAData$years)
+
+SSAData$landlocked <- as.numeric(as.character(SSAData$landlocked))
+  
+write_csv(SSAData, "data/SSAData.csv")
+```
+
+## coastal countries
+
+```{r echo=TRUE}
+coastacountries1<-SSAData%>%
+    filter(geography=="coastal")%>%
+  dplyr::select(Country.Name)
+
+unique_coastal<-unique(coastacountries1$Country.Name)
+print(unique_coastal, quote = FALSE, max.levels = NULL)
+```
+
+
+```{r include=FALSE}
+
+library(sf)
+world_map <- read_sf("data2/ne_110m_admin_0_countries/ne_110m_admin_0_countries.shp")
+
+Africa_list<-list$name
+
+Africa1<-world_map%>%
+  filter(NAME_LONG%in%Africa_list)
+
+Africa<-world_map%>%
+  filter(NAME_LONG==c(landlocked, unique_coastal))
+
+Africa_land <- world_map %>% 
+  filter(NAME_LONG%in%landlocked)
+
+Africa_coast <- world_map %>% 
+  filter(NAME_LONG%in%unique_coastal)
+
+#world_sans_antarctica <- world_map %>% 
+ # filter(ISO_A3 != "ATA")
+
+#world<-world_sans_antarctica%>% 
+#  filter(ISO_A3 != "USA")
+```
+
+## map
+```{r echo=TRUE}
+ggplot() +
+  geom_sf(data = Africa1) +
+  geom_sf(data = Africa_land, fill = "#EC8E55", color = "white") +
+   geom_sf(data = Africa_coast, fill = "#192DA1", color = "white") +
+    geom_sf_label(data = Africa_land, aes(label = NAME),
+                nudge_y = 0.2)+
+  theme_void()
+```
+
+
+
+
+
+## landlocked data summary
+
+```{r echo=TRUE}
+
+SumData_land<-SSAData%>%
+  dplyr::select(GDP, Aid, capital, U, trade, geography)%>%
+  filter(geography=="landloked")
+
+
+
+Sum_land<-SumData_land%>%
+  dplyr::select(GDP, Aid, capital, U, trade)%>%
+ summarise_each(funs(obs =n(),
+                     min = min, 
+                      q25 = quantile(., 0.25), 
+                      median = median,
+                     mean=mean,
+                      q75 = quantile(., 0.75), 
+                      max = max, 
+                      sd = sd))
+
+Tidy_land <- Sum_land %>% 
+  gather(stat, val) %>%
+  separate(stat, into = c("var", "stat"), sep = "_") %>%
+  spread(stat, val) %>%
+  dplyr::select(var, obs, min, q25, median, mean, q75, max, sd) # reorder columns
+
+
+
+fram_land<-as.data.frame(Tidy_land)
+
+write.csv(fram_land, "data/fram_land.csv")
+```
+
+## coatal data summary
+
+```{r echo=TRUE}
+SumData_coast<-SSAData%>%
+  dplyr::select(GDP, Aid, capital, U, trade, geography)%>%
+  filter(geography=="coastal")
+
+
+
+Sum_coast<-SumData_coast%>%
+  dplyr::select(GDP, Aid, capital, U, trade)%>%
+ summarise_each(funs(obs =n(),
+                     min = min, 
+                      q25 = quantile(., 0.25), 
+                      median = median,
+                     mean=mean,
+                      q75 = quantile(., 0.75), 
+                      max = max,
+                      sd = sd))
+
+Tidy_coast <- Sum_coast %>% 
+  gather(stat, val) %>%
+  separate(stat, into = c("var", "stat"), sep = "_") %>%
+  spread(stat, val) %>%
+  dplyr::select(var, obs, min, q25, median, mean, q75, max, sd) # reorder columns
+
+
+
+fram_coast<-as.data.frame(Tidy_coast)
+
+write.csv(fram_coast, "data/fram_coast.csv")
+
+```
+
+
+
+
+
+## Graph 1: Capital relative to GDP lagged 1 period for landlocked and coastal
+```{r echo=TRUE}
+SSAData_cap<-SSAData%>%
+  dplyr::select(years, geography, capital.L)%>%
+  group_by(years, geography)%>%
+summarise(capital.L=mean(capital.L))
+
+SSAData_cap%>%
+  na.omit()%>%
+  ggplot(aes(years, capital.L, colour=geography, group=geography))+
+         geom_line(width=.5) +
+  geom_point(size=3, shape=21, fill="white")+
+  scale_color_manual(values = c("darkgreen", "red"))+
+    labs(x = "Years", y = "% Capital")+
+  theme_bw()
+```
+
+## Graph 2: Trade lagged 1 period relative to GDP for landlocked and coastal 
+
+```{r echo=TRUE}
+SSAData%>%
+  na.omit()%>%
+  dplyr::select(years, geography, trade.L)%>%
+  group_by(years, geography)%>%
+summarise(trade.L=mean(trade.L))%>%
+
+
+  ggplot(aes(years, trade.L, colour=geography, group=geography))+
+         geom_line(width=.5) +
+  geom_point(size=3, shape=21, fill="white")+
+  scale_color_manual(values = c("darkgreen", "red"))+
+    labs(x = "Years", y = "% Trade")+
+  theme_bw()
+```
+
+## Graph 3: Unemployment relative to the labor force lagged 1 period for landlocked and coastal 
+```{r echo=TRUE}
+SSAData%>%
+  na.omit()%>%
+  dplyr::select(years, geography, U.L)%>%
+  group_by(years, geography)%>%
+summarise(U.L=mean(U.L))%>%
+
+
+ggplot(aes(years, U.L, colour=geography, group=geography))+
+         geom_line(width=.5)+ 
+  geom_point(size=3, shape=21, fill="white")+
+  scale_color_manual(values = c("darkgreen", "red"))+
+    labs(x = "Years", y = "% U")+
+  theme_bw()
+```
+
+
+
+
+## Graph 4: Official Development Assistance(foreign aid) relative to GDP lagged 3 periods for landlocked and coastal 
+
+```{r echo=TRUE}
+SSAData%>%
+  na.omit()%>%
+  dplyr::select(years, geography, Aid.L)%>%
+  group_by(years, geography)%>%
+summarise(Aid.L=mean(Aid.L))%>%
+
+
+  ggplot(aes(years, Aid.L, colour=geography, group=geography))+
+         geom_line(width=.5) +
+  geom_point(size=3, shape=21, fill="white")+
+  scale_color_manual(values = c("darkgreen", "red"))+
+    labs(x = "Years", y = "% Aid")+
+  theme_bw()
+
+
+```
+
+
+
+
+
+## Graph 5: GDP between landlocked and coastal 
+
+```{r echo=TRUE}
+plot_data<-SSAData%>%
+group_by(geography) %>%
+  summarize(mean_GDP = mean(GDP),
+            se_GDP = sd(GDP) / sqrt(n()),
+            upper = mean_GDP + (1.96 * se_GDP),
+            lower = mean_GDP + (-1.96 * se_GDP))
+
+
+
+ggplot(plot_data, aes(x = geography, y = mean_GDP)) +
+  geom_pointrange(aes(ymin = lower, ymax = upper, colour=geography),
+                  color = "darkgreen", size = 1)+
+  theme_bw()
+```
+
+
+
+## Model 1
+ GDP = $\beta0$ + $\beta1$$Aid_i$ + $\beta2$$GDP_i(t-1)$ + $\beta3$$capital_i$ +$\beta4$$trade_i$ + $\beta5$$U_i$ + $\upsilon$
+ 
+
+## Model 2
+
+$GDP_it$ = $\beta_0$ + $\beta_1$$GDP_i(t-1)$ + $\beta_2$$Aid_i$ + $\beta_3$$capital_i$ +$\beta_4$$trade_i$ + $\beta_5$$U_i$ + $\delta_1$landlocked + $\delta_2$Aid.landlocked + $\upsilon$
+
+
+
+## column 3 from result table 3
+```{r echo=TRUE}
+model_noLag <- lm(log(GDP) ~ log(GDP.L) + Aid  + capital + trade + U, data = SSAData)
+
+summary(model_noLag)
+```
+
+
+
+```{r include=FALSE}
+
+model_tot_No_Landlocked <- lm(log(GDP) ~ log(GDP.L) + Aid.L  + capital.L + trade.L + U.L, data = SSAData)
+
+tidy(summary(model_tot_No_Landlocked, conf.int = TRUE))
+```
+
+```{r include=FALSE}
+SSAData<-SSAData%>%
+  mutate(Aid.Landlocked=landlocked*Aid)
+
+model_total <- lm(log(GDP) ~ log(GDP.L) + Aid.L + capital.L + trade.L + U.L + landlocked + Aid.Landlocked, data = SSAData)
+
+summary(model_total)
+```
+
+## column 4 from result table 3
+```{r echo=TRUE}
+SSAData<-SSAData%>%
+  mutate(Aid.Landlocked=landlocked*Aid)
+
+model_total_noLag <- lm(log(GDP) ~ log(GDP.L) + Aid + capital + trade + U+ landlocked + Aid.Landlocked, data = SSAData)
+
+summary(model_total_noLag)
+```
+
+
+
+```{r include=FALSE}
+dat_landlocked<-SSAData%>%
+  filter(geography=="landloked")
+
+model_land <- lm(log(GDP) ~ log(GDP.L) + Aid.L + capital.L + trade.L + U.L, data = dat_landlocked)
+
+tidy(model_land, conf.int = TRUE)
+```
+
+## column 1 from result table 3
+```{r}
+dat_landlocked<-SSAData%>%
+  filter(geography=="landloked")
+model_land_noLag <- lm(log(GDP) ~ log(GDP.L) + Aid + capital + trade + U, data = dat_landlocked)
+
+summary(model_land_noLag)
+```
+
+
+
+
+```{r include=FALSE}
+dat_coast<-SSAData%>%
+  filter(geography=="coastal")
+
+model_coast <- lm(log(GDP) ~ log(GDP.L) + Aid.L + capital.L + trade.L + U.L, data = dat_coast)
+
+
+tidy(model_coast, conf.int = TRUE)
+```
+
+## column 2 from result table 3
+```{r}
+dat_coast<-SSAData%>%
+  filter(geography=="coastal")
+
+model_coast_noLag <- lm(log(GDP) ~ log(GDP.L) + Aid + capital + trade + U, data = dat_coast)
+
+summary(model_coast_noLag)
+```
+
+
+
+
+```{r include=FALSE}
+#modelsummary(list("landlocked" = model_land, "coastal" = model_coast, "SSA"=model_tot_No_Landlocked, "SSA.Landlocked"=model_total), stars = TRUE)
+```
+
+
+## Result table 3
+```{r}
+modelsummary(list("landlocked" = model_land_noLag, "coastal" = model_coast_noLag, "SSA"=model_noLag, "SSA.Landlocked"=model_total_noLag), stars = TRUE)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
